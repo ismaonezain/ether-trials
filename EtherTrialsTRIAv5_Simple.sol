@@ -23,6 +23,10 @@ interface IERC20 {
     function balanceOf(address account) external view returns (uint256);
 }
 
+interface IUniversalRouter {
+    function execute(bytes calldata commands, bytes[] calldata inputs) external payable;
+}
+
 contract EtherTrialsTRIAv5 {
     
     // ============================================
@@ -32,6 +36,7 @@ contract EtherTrialsTRIAv5 {
     address public owner;
     address public immutable triaToken;
     IUniswapV2Router public immutable uniswapRouter;
+    IUniversalRouter public immutable universalRouter;
     
     // Timing - 24 hours per period
     uint256 public constant PERIOD_DURATION = 24 hours;
@@ -48,6 +53,11 @@ contract EtherTrialsTRIAv5 {
     
     // Slippage
     uint256 public constant MIN_SLIPPAGE_TOLERANCE = 98; // 2% slippage
+    
+    // Uniswap V4 Universal Router Commands
+    bytes1 public constant V4_SWAP = 0x00;
+    bytes1 public constant SETTLE = 0x09;
+    bytes1 public constant TAKE = 0x0a;
     
     // Balances
     uint256 public buybackTRIABalance;
@@ -150,11 +160,13 @@ contract EtherTrialsTRIAv5 {
     
     constructor(
         address _triaToken,
-        address _uniswapRouter
+        address _uniswapRouter,
+        address _universalRouter
     ) {
         owner = msg.sender;
         triaToken = _triaToken;
         uniswapRouter = IUniswapV2Router(_uniswapRouter);
+        universalRouter = IUniversalRouter(_universalRouter);
         deploymentTime = block.timestamp;
         
         // Initialize period 0 with CLEAR start and end times
@@ -540,6 +552,55 @@ contract EtherTrialsTRIAv5 {
             block.timestamp + 300
         ) returns (uint256[] memory amounts) {
             return amounts[1];
+        } catch {
+            revert SwapFailed();
+        }
+    }
+    
+    /**
+     * @notice Swap ETH to TRIA using Uniswap V4 Universal Router
+     * @dev Properly encodes commands and inputs for V4's execute() function
+     * @param ethAmount Amount of ETH to swap
+     * @return Amount of TRIA tokens received
+     */
+    function _swapETHToTRIAV4(uint256 ethAmount) internal returns (uint256) {
+        uint256 minOutput = (ethAmount * MIN_SLIPPAGE_TOLERANCE) / 100;
+        
+        // Build the commands array: V4_SWAP command
+        bytes memory commands = abi.encodePacked(V4_SWAP);
+        
+        // Build the inputs array for V4_SWAP
+        // V4_SWAP requires: (address recipient, uint256 amountIn, uint256 amountOutMin, bytes path, bool payerIsUser)
+        bytes memory path = abi.encodePacked(
+            uniswapRouter.WETH(),  // tokenIn
+            triaToken              // tokenOut
+        );
+        
+        bytes memory swapInput = abi.encode(
+            address(this),    // recipient
+            ethAmount,        // amountIn
+            minOutput,        // amountOutMin
+            path,             // path (WETH -> TRIA)
+            true              // payerIsUser (contract pays with msg.value)
+        );
+        
+        // Create inputs array
+        bytes[] memory inputs = new bytes[](1);
+        inputs[0] = swapInput;
+        
+        // Get balance before swap
+        uint256 balanceBefore = IERC20(triaToken).balanceOf(address(this));
+        
+        try universalRouter.execute{value: ethAmount}(commands, inputs) {
+            // Get balance after swap
+            uint256 balanceAfter = IERC20(triaToken).balanceOf(address(this));
+            uint256 received = balanceAfter - balanceBefore;
+            
+            if (received < minOutput) {
+                revert SwapFailed();
+            }
+            
+            return received;
         } catch {
             revert SwapFailed();
         }
