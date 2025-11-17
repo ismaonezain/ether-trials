@@ -34,10 +34,12 @@ contract EtherTrialsPointBased_v6 {
     // ============================================
     
     address public owner;
-    address public immutable triaToken;
-    address public immutable universalRouter;
-    address public immutable weth;
-    address public immutable poolManager; // Uniswap V4 PoolManager
+    
+    // Base Mainnet Addresses - Hardcoded
+    address public constant triaToken = 0xD852713dD8dDF61316DA19383D0c427aDb85EB07;
+    address public constant universalRouter = 0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD;
+    address public constant weth = 0x4200000000000000000000000000000000000006;
+    address public constant poolManager = 0x7Da1D65F8B249183667cdE74C5CBD46dD38AA829;
     
     // Timing - 24 hours per period
     uint256 public constant PERIOD_DURATION = 24 hours;
@@ -63,8 +65,15 @@ contract EtherTrialsPointBased_v6 {
     uint256 public currentPeriod;
     uint256 public immutable deploymentTime;
     
-    // V4 Pool Configuration
-    bytes32 public poolKey; // Encoded pool parameters
+    // V4 Pool Configuration - TRIA/WETH pool on Base with dynamic fee hook
+    // Pool params: currency0=WETH, currency1=TRIA, fee=3000, tickSpacing=200, hooks=0xd60D6B218116cFd801E28F78d011a203D2b068Cc
+    bytes32 public constant poolKey = keccak256(abi.encode(
+        address(0x4200000000000000000000000000000000000006), // WETH (currency0)
+        address(0xD852713dD8dDF61316DA19383D0c427aDb85EB07), // TRIA (currency1)
+        uint24(3000),                                          // fee (3%)
+        int24(200),                                            // tickSpacing
+        address(0xd60D6B218116cFd801E28F78d011a203D2b068Cc)  // hooks
+    ));
     
     // ============================================
     // STRUCTS
@@ -154,19 +163,8 @@ contract EtherTrialsPointBased_v6 {
     // CONSTRUCTOR
     // ============================================
     
-    constructor(
-        address _triaToken,
-        address _universalRouter,
-        address _weth,
-        address _poolManager,
-        bytes32 _poolKey
-    ) {
+    constructor() {
         owner = msg.sender;
-        triaToken = _triaToken;
-        universalRouter = _universalRouter;
-        weth = _weth;
-        poolManager = _poolManager;
-        poolKey = _poolKey;
         deploymentTime = block.timestamp;
         
         // Initialize period 0
