@@ -233,54 +233,64 @@ contract EtherTrialsPointBased_v6 {
     }
     
     // ============================================
-    // UNISWAP V4 SWAP FUNCTION - BROKEN IMPLEMENTATION
+    // UNISWAP V4 SWAP FUNCTION - FIXED IMPLEMENTATION
     // ============================================
     
     /**
      * @notice Swap ETH to TRIA using Uniswap V4 Universal Router
-     * @dev BROKEN: Uses incorrect nested command structure
+     * @dev Uses proper sequential command structure with aligned inputs
+     * Commands: WRAP_ETH -> V4_SWAP -> SWEEP
      */
     function _swapETHToTRIAV4(uint256 ethAmount) internal returns (uint256) {
-        // PROBLEM 1: Trying to encode multiple actions into a single nested command
-        // This is not how Universal Router works!
+        // Calculate minimum output with slippage tolerance
+        uint256 minOutput = (ethAmount * MIN_SLIPPAGE_TOLERANCE) / 100;
         
-        // These "action" constants don't exist in Universal Router
-        bytes1 SWAP_EXACT_IN_SINGLE_ACTION = 0x01;
-        bytes1 SETTLE_ALL_ACTION = 0x02;
-        bytes1 TAKE_ALL_ACTION = 0x03;
+        // FIXED: Use sequential commands following Universal Router v2 architecture
+        // Each command gets its own input - commands.length == inputs.length
         
-        // PROBLEM 2: Incorrect nested structure - trying to pack sub-actions
-        bytes memory actions = abi.encodePacked(
-            SWAP_EXACT_IN_SINGLE_ACTION,
-            SETTLE_ALL_ACTION,
-            TAKE_ALL_ACTION
+        // Command IDs from Uniswap/universal-router/contracts/libraries/Commands.sol
+        bytes memory commands = abi.encodePacked(
+            bytes1(0x0b),  // WRAP_ETH - Convert ETH to WETH
+            bytes1(0x10),  // V4_SWAP - Execute swap on Uniswap V4
+            bytes1(0x04)   // SWEEP - Transfer tokens to recipient
         );
         
-        // PROBLEM 3: Invalid parameter encoding - abi.encode(actions, params) is wrong
-        bytes memory nestedParams = abi.encode(
-            actions,
-            abi.encode(
-                poolKey,
-                true, // zeroForOne
-                int256(uint256(ethAmount)),
-                uint160(0), // sqrtPriceLimitX96
-                ""  // hookData
-            )
+        // Create inputs array with proper alignment (3 commands = 3 inputs)
+        bytes[] memory inputs = new bytes[](3);
+        
+        // Input 0: WRAP_ETH parameters
+        // Wrap the ETH amount to WETH for the swap
+        inputs[0] = abi.encode(
+            address(universalRouter),  // recipient (router needs WETH for swap)
+            ethAmount                   // amount to wrap
         );
         
-        // PROBLEM 4: Only 1 command but trying to handle 3 sub-actions
-        // Commands and inputs arrays don't align: commands.length = 1, but we need 3 actions
-        bytes memory commands = abi.encodePacked(bytes1(0x00)); // Wrong command ID
+        // Input 1: V4_SWAP parameters
+        // Execute the actual swap on Uniswap V4
+        inputs[1] = abi.encode(
+            poolKey,                    // Pool identification (currency0, currency1, fee, tickSpacing, hooks)
+            true,                       // zeroForOne (WETH -> TRIA)
+            int256(ethAmount),          // amountIn (positive for exact input)
+            uint160(0),                 // sqrtPriceLimitX96 (0 = no limit)
+            bytes("")                   // hookData (empty if no hooks)
+        );
         
-        bytes[] memory inputs = new bytes[](1);
-        inputs[0] = nestedParams; // This nested structure is invalid
+        // Input 2: SWEEP parameters
+        // Transfer swapped TRIA tokens to this contract
+        inputs[2] = abi.encode(
+            triaToken,                  // token to sweep
+            address(this),              // recipient
+            minOutput                   // minimum amount (slippage protection)
+        );
         
+        // Track balance before swap
         uint256 triaBalanceBefore = IERC20(triaToken).balanceOf(address(this));
         
+        // Execute the swap via Universal Router
         try IUniversalRouter(universalRouter).execute{value: ethAmount}(
             commands,
             inputs,
-            block.timestamp + 300
+            block.timestamp + 300  // 5 minute deadline
         ) {
             uint256 triaBalanceAfter = IERC20(triaToken).balanceOf(address(this));
             return triaBalanceAfter - triaBalanceBefore;
