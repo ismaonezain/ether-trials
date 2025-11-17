@@ -516,18 +516,18 @@ contract EtherTrialsPointBased_v6 {
     ) {
         Period storage p = periods[period];
         
-        uint256 now = block.timestamp;
+        uint256 currentTime = block.timestamp;
         uint256 remaining = 0;
-        if (now < p.endTime) {
-            remaining = p.endTime - now;
+        if (currentTime < p.endTime) {
+            remaining = p.endTime - currentTime;
         }
         
         string memory statusStr;
         if (p.finalized) {
             statusStr = "finalized";
-        } else if (now < p.startTime) {
+        } else if (currentTime < p.startTime) {
             statusStr = "not-started";
-        } else if (now >= p.startTime && now < p.endTime) {
+        } else if (currentTime >= p.startTime && currentTime < p.endTime) {
             statusStr = "active";
         } else {
             statusStr = "ended";
