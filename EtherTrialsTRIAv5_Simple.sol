@@ -560,35 +560,54 @@ contract EtherTrialsTRIAv5 {
     /**
      * @notice Swap ETH to TRIA using Uniswap V4 Universal Router
      * @dev Properly encodes commands and inputs for V4's execute() function
+     *      V4 swaps require three sequential actions: swap, settle, take
      * @param ethAmount Amount of ETH to swap
      * @return Amount of TRIA tokens received
      */
     function _swapETHToTRIAV4(uint256 ethAmount) internal returns (uint256) {
         uint256 minOutput = (ethAmount * MIN_SLIPPAGE_TOLERANCE) / 100;
         
-        // Build the commands array: V4_SWAP command
-        bytes memory commands = abi.encodePacked(V4_SWAP);
+        // Build the commands array with three separate commands: V4_SWAP, SETTLE, TAKE
+        // Each command is a single byte, and they execute in sequence
+        bytes memory commands = abi.encodePacked(
+            V4_SWAP,  // 0x00 - Execute swap through V4 PoolManager
+            SETTLE,   // 0x09 - Settle currency owed to PoolManager
+            TAKE      // 0x0a - Take currency from PoolManager to recipient
+        );
         
-        // Build the inputs array for V4_SWAP
-        // V4_SWAP requires: (address recipient, uint256 amountIn, uint256 amountOutMin, bytes path, bool payerIsUser)
+        // Build the path encoding for V4 (currency0 -> currency1)
         bytes memory path = abi.encodePacked(
-            uniswapRouter.WETH(),  // tokenIn
-            triaToken              // tokenOut
+            uniswapRouter.WETH(),  // tokenIn (currency0)
+            triaToken              // tokenOut (currency1)
         );
         
-        bytes memory swapInput = abi.encode(
-            address(this),    // recipient
-            ethAmount,        // amountIn
-            minOutput,        // amountOutMin
-            path,             // path (WETH -> TRIA)
-            true              // payerIsUser (contract pays with msg.value)
+        // Build separate inputs for each command
+        bytes[] memory inputs = new bytes[](3);
+        
+        // Input for V4_SWAP: (address recipient, uint256 amountIn, uint256 amountOutMin, bytes path, bool payerIsUser)
+        inputs[0] = abi.encode(
+            address(this),    // recipient - this contract receives tokens
+            ethAmount,        // amountIn - exact amount of ETH to swap
+            minOutput,        // amountOutMin - minimum TRIA to receive (slippage protection)
+            path,             // path - WETH -> TRIA
+            true              // payerIsUser - true means payer is msg.sender (this contract)
         );
         
-        // Create inputs array
-        bytes[] memory inputs = new bytes[](1);
-        inputs[0] = swapInput;
+        // Input for SETTLE: (address currency, uint256 amount, bool payerIsUser)
+        inputs[1] = abi.encode(
+            uniswapRouter.WETH(),  // currency - WETH being settled
+            ethAmount,             // amount - amount to settle
+            true                   // payerIsUser - contract settles with its ETH
+        );
         
-        // Get balance before swap
+        // Input for TAKE: (address currency, address recipient, uint256 amount)
+        inputs[2] = abi.encode(
+            triaToken,        // currency - TRIA token to take
+            address(this),    // recipient - this contract receives TRIA
+            minOutput         // amount - minimum amount to take (0 means take all)
+        );
+        
+        // Get balance before swap to track what we received
         uint256 balanceBefore = IERC20(triaToken).balanceOf(address(this));
         
         try universalRouter.execute{value: ethAmount}(commands, inputs) {
@@ -596,6 +615,7 @@ contract EtherTrialsTRIAv5 {
             uint256 balanceAfter = IERC20(triaToken).balanceOf(address(this));
             uint256 received = balanceAfter - balanceBefore;
             
+            // Verify we received at least the minimum output
             if (received < minOutput) {
                 revert SwapFailed();
             }
