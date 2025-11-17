@@ -545,6 +545,10 @@ contract EtherTrialsPointBased_v6 {
         );
     }
     
+    /**
+     * @notice Get user entry and score info for a period
+     * @dev Split into two functions to avoid stack too deep error
+     */
     function getUserInfo(uint256 period, uint256 fid) external view returns (
         bool hasEntered,
         uint256 entryAmountETH,
@@ -557,22 +561,28 @@ contract EtherTrialsPointBased_v6 {
         uint256 claimedAmount,
         uint256 pendingReward
     ) {
-        Entry storage entry = entries[period][fid];
-        ScoreCommitment storage commitment = scoreCommitments[period][fid];
-        ClaimStatus storage claim = claimStatus[period][fid];
+        Entry memory entry = entries[period][fid];
+        ScoreCommitment memory commitment = scoreCommitments[period][fid];
         
-        return (
-            entry.exists,
-            entry.entryAmountETH,
-            entry.entryWeight,
-            entry.wallet,
-            commitment.commitHash != bytes32(0),
-            commitment.revealed,
-            commitment.score,
-            claim.claimed,
-            claim.triaAmount,
-            _calculateReward(period, fid)
-        );
+        hasEntered = entry.exists;
+        entryAmountETH = entry.entryAmountETH;
+        entryWeight = entry.entryWeight;
+        wallet = entry.wallet;
+        hasCommitted = commitment.commitHash != bytes32(0);
+        hasRevealed = commitment.revealed;
+        score = commitment.score;
+        
+        (hasClaimed, claimedAmount) = _getClaimInfo(period, fid);
+        pendingReward = _calculateReward(period, fid);
+    }
+    
+    /**
+     * @notice Internal helper to get claim info
+     * @dev Separated to avoid stack too deep in getUserInfo
+     */
+    function _getClaimInfo(uint256 period, uint256 fid) internal view returns (bool claimed, uint256 amount) {
+        ClaimStatus memory claim = claimStatus[period][fid];
+        return (claim.claimed, claim.triaAmount);
     }
     
     function getWalletForFid(uint256 fid) external view returns (address) {
