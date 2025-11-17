@@ -238,59 +238,81 @@ contract EtherTrialsPointBased_v6 {
     
     /**
      * @notice Swap ETH to TRIA using Uniswap V4 Universal Router
-     * @dev Uses V4Planner pattern: Single V4_SWAP command with encoded V4 actions
+     * @dev Implements V4Planner pattern with proper action encoding
      * V4 Actions: SWAP_EXACT_IN_SINGLE -> SETTLE_ALL -> TAKE_ALL
-     * Reference: https://docs.uniswap.org/contracts/v4/guides/swaps/single-hop-swap
+     * 
+     * Pattern follows official SDK:
+     * - v4Planner.addAction(SWAP_EXACT_IN_SINGLE, [config])
+     * - v4Planner.addAction(SETTLE_ALL, [currency0, amountIn])
+     * - v4Planner.addAction(TAKE_ALL, [currency1, amountOutMinimum])
+     * - encodedActions = v4Planner.finalize()
+     * - routePlanner.addCommand(V4_SWAP, [v4Planner.actions, v4Planner.params])
+     * 
+     * References:
+     * - https://docs.uniswap.org/contracts/v4/guides/swaps/single-hop-swap
+     * - https://docs.uniswap.org/contracts/v4/guides/swaps/quoting
      */
     function _swapETHToTRIAV4(uint256 ethAmount) internal returns (uint256) {
-        // Calculate minimum output with slippage tolerance
+        // Calculate minimum output with slippage tolerance (2% slippage)
         uint256 minOutput = (ethAmount * MIN_SLIPPAGE_TOLERANCE) / 100;
         
-        // V4 Action IDs from @uniswap/v4-sdk
-        bytes1 SWAP_EXACT_IN_SINGLE = 0x00;  // V4 action for exact input single-hop swap
-        bytes1 SETTLE_ALL = 0x09;             // V4 action to settle input currency
-        bytes1 TAKE_ALL = 0x0a;               // V4 action to take output currency
+        // V4 Action IDs from @uniswap/v4-sdk Actions enum
+        bytes1 SWAP_EXACT_IN_SINGLE = 0x00;  // Single-hop exact input swap
+        bytes1 SETTLE_ALL = 0x09;             // Settle all of input currency
+        bytes1 TAKE_ALL = 0x0a;               // Take all of output currency
         
-        // Build V4 actions following the official V4Planner pattern
+        // Build V4 actions array (equivalent to v4Planner.actions after adding actions)
         bytes memory v4Actions = abi.encodePacked(
             SWAP_EXACT_IN_SINGLE,
             SETTLE_ALL,
             TAKE_ALL
         );
         
-        // Encode V4 action parameters following the V4Planner pattern
-        // SWAP_EXACT_IN_SINGLE params: poolKey, zeroForOne, amountIn, amountOutMinimum, hookData
-        // SETTLE_ALL params: currency, amount
-        // TAKE_ALL params: currency, amountMin
-        bytes memory v4Params = abi.encode(
-            // SWAP_EXACT_IN_SINGLE parameters
-            poolKey,                    // Pool identification
-            true,                       // zeroForOne (WETH -> TRIA)
-            ethAmount,                  // amountIn
-            minOutput,                  // amountOutMinimum (slippage protection)
-            bytes(""),                  // hookData
-            // SETTLE_ALL parameters
-            weth,                       // currency to settle (WETH)
-            ethAmount,                  // amount to settle
-            // TAKE_ALL parameters
-            triaToken,                  // currency to take (TRIA)
-            minOutput                   // minimum amount to take
+        // Build V4 params array (equivalent to v4Planner.params after adding actions)
+        // Each action's parameters are encoded in sequence
+        bytes[] memory actionParams = new bytes[](3);
+        
+        // SWAP_EXACT_IN_SINGLE parameters (SwapExactInSingle config)
+        actionParams[0] = abi.encode(
+            poolKey,        // Pool identification (currency0, currency1, fee, tickSpacing, hooks)
+            true,           // zeroForOne: true for WETH (currency0) -> TRIA (currency1)
+            ethAmount,      // amountIn: exact amount to swap
+            minOutput,      // amountOutMinimum: minimum output with slippage protection
+            bytes("")       // hookData: empty if no hooks
         );
         
-        // Encode the V4 actions and params together
+        // SETTLE_ALL parameters (currency, amountMax)
+        actionParams[1] = abi.encode(
+            weth,           // currency to settle (WETH/currency0)
+            ethAmount       // amount to settle
+        );
+        
+        // TAKE_ALL parameters (currency, amountMin)
+        actionParams[2] = abi.encode(
+            triaToken,      // currency to take (TRIA/currency1)
+            minOutput       // minimum amount to take
+        );
+        
+        // Encode params array (equivalent to v4Planner.params)
+        bytes memory v4Params = abi.encode(actionParams);
+        
+        // Finalize V4 actions (equivalent to v4Planner.finalize())
+        // This is passed as [v4Planner.actions, v4Planner.params] to V4_SWAP command
         bytes memory encodedV4Actions = abi.encode(v4Actions, v4Params);
         
         // Universal Router command: V4_SWAP (0x10)
         bytes memory commands = abi.encodePacked(bytes1(0x10));
         
-        // Single input containing the encoded V4 actions
+        // Single input array containing the encoded V4 actions
+        // Equivalent to: universalRouter.execute(routePlanner.commands, [encodedActions], deadline)
         bytes[] memory inputs = new bytes[](1);
         inputs[0] = encodedV4Actions;
         
-        // Track balance before swap
+        // Track balance before swap for return value
         uint256 triaBalanceBefore = IERC20(triaToken).balanceOf(address(this));
         
-        // Execute the swap via Universal Router with ETH value
+        // Execute swap via Universal Router
+        // Native ETH is sent via {value: ethAmount} and handled by SETTLE_ALL action
         try IUniversalRouter(universalRouter).execute{value: ethAmount}(
             commands,
             inputs,
