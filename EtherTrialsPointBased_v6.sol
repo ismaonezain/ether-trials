@@ -238,55 +238,59 @@ contract EtherTrialsPointBased_v6 {
     
     /**
      * @notice Swap ETH to TRIA using Uniswap V4 Universal Router
-     * @dev Uses proper sequential command structure with aligned inputs
-     * Commands: WRAP_ETH -> V4_SWAP -> SWEEP
+     * @dev Uses V4Planner pattern: Single V4_SWAP command with encoded V4 actions
+     * V4 Actions: SWAP_EXACT_IN_SINGLE -> SETTLE_ALL -> TAKE_ALL
+     * Reference: https://docs.uniswap.org/contracts/v4/guides/swaps/single-hop-swap
      */
     function _swapETHToTRIAV4(uint256 ethAmount) internal returns (uint256) {
         // Calculate minimum output with slippage tolerance
         uint256 minOutput = (ethAmount * MIN_SLIPPAGE_TOLERANCE) / 100;
         
-        // FIXED: Use sequential commands following Universal Router v2 architecture
-        // Each command gets its own input - commands.length == inputs.length
+        // V4 Action IDs from @uniswap/v4-sdk
+        bytes1 SWAP_EXACT_IN_SINGLE = 0x00;  // V4 action for exact input single-hop swap
+        bytes1 SETTLE_ALL = 0x09;             // V4 action to settle input currency
+        bytes1 TAKE_ALL = 0x0a;               // V4 action to take output currency
         
-        // Command IDs from Uniswap/universal-router/contracts/libraries/Commands.sol
-        bytes memory commands = abi.encodePacked(
-            bytes1(0x0b),  // WRAP_ETH - Convert ETH to WETH
-            bytes1(0x10),  // V4_SWAP - Execute swap on Uniswap V4
-            bytes1(0x04)   // SWEEP - Transfer tokens to recipient
+        // Build V4 actions following the official V4Planner pattern
+        bytes memory v4Actions = abi.encodePacked(
+            SWAP_EXACT_IN_SINGLE,
+            SETTLE_ALL,
+            TAKE_ALL
         );
         
-        // Create inputs array with proper alignment (3 commands = 3 inputs)
-        bytes[] memory inputs = new bytes[](3);
-        
-        // Input 0: WRAP_ETH parameters
-        // Wrap the ETH amount to WETH for the swap
-        inputs[0] = abi.encode(
-            address(universalRouter),  // recipient (router needs WETH for swap)
-            ethAmount                   // amount to wrap
-        );
-        
-        // Input 1: V4_SWAP parameters
-        // Execute the actual swap on Uniswap V4
-        inputs[1] = abi.encode(
-            poolKey,                    // Pool identification (currency0, currency1, fee, tickSpacing, hooks)
+        // Encode V4 action parameters following the V4Planner pattern
+        // SWAP_EXACT_IN_SINGLE params: poolKey, zeroForOne, amountIn, amountOutMinimum, hookData
+        // SETTLE_ALL params: currency, amount
+        // TAKE_ALL params: currency, amountMin
+        bytes memory v4Params = abi.encode(
+            // SWAP_EXACT_IN_SINGLE parameters
+            poolKey,                    // Pool identification
             true,                       // zeroForOne (WETH -> TRIA)
-            int256(ethAmount),          // amountIn (positive for exact input)
-            uint160(0),                 // sqrtPriceLimitX96 (0 = no limit)
-            bytes("")                   // hookData (empty if no hooks)
+            ethAmount,                  // amountIn
+            minOutput,                  // amountOutMinimum (slippage protection)
+            bytes(""),                  // hookData
+            // SETTLE_ALL parameters
+            weth,                       // currency to settle (WETH)
+            ethAmount,                  // amount to settle
+            // TAKE_ALL parameters
+            triaToken,                  // currency to take (TRIA)
+            minOutput                   // minimum amount to take
         );
         
-        // Input 2: SWEEP parameters
-        // Transfer swapped TRIA tokens to this contract
-        inputs[2] = abi.encode(
-            triaToken,                  // token to sweep
-            address(this),              // recipient
-            minOutput                   // minimum amount (slippage protection)
-        );
+        // Encode the V4 actions and params together
+        bytes memory encodedV4Actions = abi.encode(v4Actions, v4Params);
+        
+        // Universal Router command: V4_SWAP (0x10)
+        bytes memory commands = abi.encodePacked(bytes1(0x10));
+        
+        // Single input containing the encoded V4 actions
+        bytes[] memory inputs = new bytes[](1);
+        inputs[0] = encodedV4Actions;
         
         // Track balance before swap
         uint256 triaBalanceBefore = IERC20(triaToken).balanceOf(address(this));
         
-        // Execute the swap via Universal Router
+        // Execute the swap via Universal Router with ETH value
         try IUniversalRouter(universalRouter).execute{value: ethAmount}(
             commands,
             inputs,
