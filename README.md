@@ -2,6 +2,20 @@
 
 Complete tournament system with FID-based entries, weighted rewards, mini games, and $TRIA token integration.
 
+---
+
+## 🌟 New: Want to Contribute to Base Blockchain?
+
+We've created comprehensive guides to help you contribute to the **Base blockchain** (https://github.com/base/node):
+
+- 🇮🇩 **[Indonesian Guide](./CONTRIBUTING_TO_BASE.md)** - Panduan lengkap dalam Bahasa Indonesia
+- 🇬🇧 **[English Guide](./CONTRIBUTING_TO_BASE_EN.md)** - Complete tutorial in English  
+- 🚀 **[Quick Start](./HOW_TO_CONTRIBUTE_TO_BASE.md)** - Get started fast
+
+Perfect for beginners who want to learn Go, Git, and blockchain development!
+
+---
+
 ## 📁 Files Overview
 
 ```
