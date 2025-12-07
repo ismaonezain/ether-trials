@@ -1,0 +1,115 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 222.2 84% 4.9%;
+  --foreground: 210 40% 98%;
+  --card: 222.2 84% 4.9%;
+  --card-foreground: 210 40% 98%;
+  --popover: 222.2 84% 4.9%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 210 40% 98%;
+  --primary-foreground: 222.2 47.4% 11.2%;
+  --secondary: 217.2 32.6% 17.5%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 217.2 32.6% 17.5%;
+  --muted-foreground: 215 20.2% 65.1%;
+  --accent: 217.2 32.6% 17.5%;
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 217.2 32.6% 17.5%;
+  --input: 217.2 32.6% 17.5%;
+  --ring: 212.7 26.8% 83.9%;
+  --radius: 0.5rem;
+  --chart-1: 220 70% 50%;
+  --chart-2: 160 60% 45%;
+  --chart-3: 30 80% 55%;
+  --chart-4: 280 65% 60%;
+  --chart-5: 340 75% 55%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Clean Dark Theme */
+.fantasy-card {
+  @apply bg-gray-900 border-2 border-gray-700;
+  @apply rounded-xl;
+  @apply shadow-xl;
+}
+
+.fantasy-title {
+  @apply text-yellow-400 font-bold;
+}
+
+.glow-text {
+  @apply text-yellow-400;
+}
+
+.medieval-text {
+  font-family: 'MedievalSharp', 'Cinzel', serif;
+}
+
+.fantasy-button {
+  @apply bg-yellow-600 hover:bg-yellow-500;
+  @apply transition-colors duration-200;
+  @apply shadow-lg;
+}
+
+.feature-box {
+  @apply bg-gray-800/50 border-2 border-gray-700;
+  @apply rounded-lg p-2;
+  @apply shadow-md;
+}
+
+/* Portal/Gate Effect */
+.portal-glow {
+  animation: portal-pulse 2s ease-in-out infinite;
+}
+
+@keyframes portal-pulse {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(59, 130, 246, 0.6);
+  }
+}
+
+/* Simple Border */
+.ancient-border {
+  @apply border-2 border-gray-700;
+}
+
+/* Modal Styles */
+.tournament-entry-modal {
+  @apply bg-gray-900 border-2 border-gray-700;
+  @apply shadow-2xl;
+}
+
+/* Dark Theme Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-black/50;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-600;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-500;
+}
