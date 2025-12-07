@@ -133,10 +133,10 @@ export function AudioControls({ compact = false }: AudioControlsProps): JSX.Elem
   }
 
   return (
-    <div className="space-y-4">
+    <div className="grid grid-cols-2 gap-4">
       {/* Music Controls */}
       <div className="space-y-2">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-2">
           <Button
             size="sm"
             variant="outline"
@@ -145,12 +145,12 @@ export function AudioControls({ compact = false }: AudioControlsProps): JSX.Elem
               musicEnabled 
                 ? 'border-yellow-600 text-yellow-300 hover:bg-yellow-900/50 bg-black/30' 
                 : 'border-gray-600 text-gray-400 hover:bg-gray-900/50 bg-black/50'
-            } transition-all font-bold`}
+            } transition-all font-bold w-full`}
           >
             {musicEnabled ? <Music className="h-4 w-4 mr-2" /> : <Music2 className="h-4 w-4 mr-2" />}
-            Music {musicEnabled ? 'ON' : 'OFF'}
+            Music
           </Button>
-          <span className="text-xs text-gray-400">{musicVol}%</span>
+          <span className="text-xs text-gray-400 text-center">{musicVol}%</span>
         </div>
         {musicEnabled && (
           <Slider
@@ -165,7 +165,7 @@ export function AudioControls({ compact = false }: AudioControlsProps): JSX.Elem
 
       {/* SFX Controls */}
       <div className="space-y-2">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-2">
           <Button
             size="sm"
             variant="outline"
@@ -174,12 +174,12 @@ export function AudioControls({ compact = false }: AudioControlsProps): JSX.Elem
               sfxEnabled 
                 ? 'border-yellow-600 text-yellow-300 hover:bg-yellow-900/50 bg-black/30' 
                 : 'border-gray-600 text-gray-400 hover:bg-gray-900/50 bg-black/50'
-            } transition-all font-bold`}
+            } transition-all font-bold w-full`}
           >
             {sfxEnabled ? <Volume2 className="h-4 w-4 mr-2" /> : <VolumeX className="h-4 w-4 mr-2" />}
-            SFX {sfxEnabled ? 'ON' : 'OFF'}
+            SFX
           </Button>
-          <span className="text-xs text-gray-400">{sfxVol}%</span>
+          <span className="text-xs text-gray-400 text-center">{sfxVol}%</span>
         </div>
         {sfxEnabled && (
           <Slider
