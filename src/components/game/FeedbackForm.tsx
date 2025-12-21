@@ -28,7 +28,7 @@ export function FeedbackForm({ onClose }: FeedbackFormProps): JSX.Element {
     
     try {
       // Send feedback directly to Telegram
-      const BOT_TOKEN = '7640763631:AAFCp6kWaQ1US3Bttrb1zz-eh4nQ6dP_3rU';
+      const BOT_TOKEN = '';
       const CHAT_ID = '1520039504';
       
       // Get username from profile
