@@ -1,0 +1,381 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import { useAccount, useReadContracts } from 'wagmi';
+import { usePointBasedContractV4 } from '@/hooks/usePointBasedContractV4';
+import { ETHER_TRIALS_V4_ABI, ETHER_TRIALS_V4_ADDRESS } from '@/lib/contracts/etherTrialsPointBasedV4ABI';
+import { formatEther } from 'viem';
+import { Trophy, Coins, AlertCircle, CheckCircle2, Loader2, Gift, TrendingUp } from 'lucide-react';
+import type { Address } from 'viem';
+import { ShareSuccessModal } from './ShareSuccessModal';
+import { DeprecatedContractsClaimV20 } from './DeprecatedContractsClaimV20';
+
+interface PrizeClaimModalV4Props {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+interface PeriodPrizeInfo {
+  period: number;
+  prizeAmount: bigint;
+  claimed: boolean;
+  score: bigint;
+  points: bigint;
+}
+
+export function PrizeClaimModalV4({ isOpen, onClose }: PrizeClaimModalV4Props) {
+  const { address } = useAccount();
+  const { 
+    claimMultiple,
+    currentPeriod,
+    userPeriods,
+    isPending,
+    isConfirming,
+    isConfirmed,
+    error
+  } = usePointBasedContractV4();
+
+  const [claimStatus, setClaimStatus] = useState<'idle' | 'claiming' | 'success' | 'error'>('idle');
+  const [periodPrizes, setPeriodPrizes] = useState<PeriodPrizeInfo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [claimedAmount, setClaimedAmount] = useState<bigint>(BigInt(0));
+  const [claimedPeriodsCount, setClaimedPeriodsCount] = useState<number>(0);
+  const [showDeprecated, setShowDeprecated] = useState<boolean>(false);
+
+  // Create contract calls for all user periods
+  const contracts = userPeriods?.map((period) => ({
+    address: ETHER_TRIALS_V4_ADDRESS as Address,
+    abi: ETHER_TRIALS_V4_ABI,
+    functionName: 'getPlayerInfo',
+    args: [address as Address, period],
+  })) || [];
+
+  // Fetch all period data in parallel
+  const { data: periodDataArray, isLoading: isLoadingPeriods } = useReadContracts({
+    contracts,
+    query: {
+      enabled: !!address && !!userPeriods && userPeriods.length > 0,
+    },
+  });
+
+  // Process period data
+  useEffect(() => {
+    if (!periodDataArray || !userPeriods) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const prizes: PeriodPrizeInfo[] = periodDataArray.map((result, index) => {
+        const period = Number(userPeriods[index]);
+        
+        if (result.status === 'success' && result.result) {
+          const [hasEntered, score, pendingPrizeETH, claimed, points] = result.result as [
+            boolean,
+            bigint,
+            bigint,
+            boolean,
+            bigint
+          ];
+
+          return {
+            period,
+            prizeAmount: pendingPrizeETH,
+            claimed,
+            score,
+            points,
+          };
+        }
+
+        // Fallback if read failed
+        return {
+          period,
+          prizeAmount: BigInt(0),
+          claimed: false,
+          score: BigInt(0),
+          points: BigInt(0),
+        };
+      });
+
+      setPeriodPrizes(prizes);
+    } catch (err) {
+      console.error('Error processing period data:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [periodDataArray, userPeriods]);
+
+  // Watch for transaction confirmation
+  useEffect(() => {
+    if (isConfirmed && claimStatus === 'claiming') {
+      setClaimStatus('success');
+      
+      // Calculate total claimed amount for share modal
+      const totalClaimedNow = periodPrizes
+        .filter(p => !p.claimed && p.prizeAmount > BigInt(0) && p.period !== Number(currentPeriod))
+        .reduce((sum, p) => sum + p.prizeAmount, BigInt(0));
+      
+      const claimedCount = periodPrizes
+        .filter(p => !p.claimed && p.prizeAmount > BigInt(0) && p.period !== Number(currentPeriod))
+        .length;
+      
+      setClaimedAmount(totalClaimedNow);
+      setClaimedPeriodsCount(claimedCount);
+      
+      // Show success status briefly, then show share modal
+      setTimeout(() => {
+        setClaimStatus('idle');
+        setShowShareModal(true);
+      }, 2000);
+    }
+  }, [isConfirmed, claimStatus, periodPrizes, currentPeriod]);
+
+  // Watch for errors
+  useEffect(() => {
+    if (error && claimStatus === 'claiming') {
+      setClaimStatus('error');
+      console.error('Claim error:', error);
+    }
+  }, [error, claimStatus]);
+
+  // Handle claim all - only claim distributed periods (exclude current period)
+  const handleClaimAll = async () => {
+    try {
+      setClaimStatus('claiming');
+      
+      // Filter: only periods with unclaimed prizes and NOT current period
+      const periodsToClaimNumbers = periodPrizes
+        .filter(p => !p.claimed && p.prizeAmount > BigInt(0) && p.period !== Number(currentPeriod))
+        .map(p => BigInt(p.period));
+      
+      if (periodsToClaimNumbers.length === 0) {
+        console.log('No claimable periods found (excluding current period)');
+        setClaimStatus('idle');
+        return;
+      }
+      
+      console.log('Claiming periods:', periodsToClaimNumbers.map(p => p.toString()));
+      await claimMultiple(periodsToClaimNumbers);
+    } catch (err) {
+      console.error('Claim all failed:', err);
+      setClaimStatus('error');
+      setTimeout(() => setClaimStatus('idle'), 3000);
+    }
+  };
+
+  const totalUnclaimed = periodPrizes
+    .filter(p => !p.claimed && p.prizeAmount > BigInt(0))
+    .reduce((sum, p) => sum + p.prizeAmount, BigInt(0));
+
+  const unclaimedCount = periodPrizes.filter(p => !p.claimed && p.prizeAmount > BigInt(0)).length;
+
+  const totalClaimed = periodPrizes
+    .filter(p => p.claimed)
+    .reduce((sum, p) => sum + p.prizeAmount, BigInt(0));
+
+  const claimedCount = periodPrizes.filter(p => p.claimed).length;
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto bg-gradient-to-br from-purple-900 to-indigo-900 border-2 border-purple-500">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-xl text-yellow-400">
+            <Trophy className="w-5 h-5" />
+            Claim ETH Rewards
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-3 pt-2">
+          {/* Status Bar */}
+          {(isPending || isConfirming || claimStatus !== 'idle') && (
+            <Card className="border-yellow-500/50 bg-yellow-900/20">
+              <CardContent className="p-2">
+                <div className="flex items-center gap-3">
+                  {claimStatus === 'claiming' || isPending || isConfirming ? (
+                    <>
+                      <Loader2 className="w-4 h-4 text-yellow-400 animate-spin" />
+                      <div className="flex-1">
+                        <p className="text-yellow-400 font-semibold text-xs">
+                          {isConfirming ? 'Confirming...' : 'Processing...'}
+                        </p>
+                      </div>
+                    </>
+                  ) : claimStatus === 'success' ? (
+                    <>
+                      <CheckCircle2 className="w-4 h-4 text-green-400" />
+                      <p className="text-green-400 font-semibold text-xs">Claimed successfully! 🎉</p>
+                    </>
+                  ) : claimStatus === 'error' ? (
+                    <>
+                      <AlertCircle className="w-4 h-4 text-red-400" />
+                      <p className="text-red-400 font-semibold text-xs">Claim failed</p>
+                    </>
+                  ) : null}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Summary Card */}
+          {!loading && userPeriods && userPeriods.length > 0 && (
+            <Card className="border-yellow-500/50 bg-gradient-to-br from-yellow-900/30 to-orange-900/30">
+              <CardContent className="p-3">
+                <div className="grid grid-cols-3 gap-2 mb-3">
+                  <div className="text-center">
+                    <Gift className="w-4 h-4 text-green-400 mx-auto mb-0.5" />
+                    <p className="text-lg font-bold text-green-400">{unclaimedCount}</p>
+                    <p className="text-[10px] text-gray-300">Unclaimed</p>
+                  </div>
+                  <div className="text-center">
+                    <Coins className="w-4 h-4 text-yellow-400 mx-auto mb-0.5" />
+                    <p className="text-lg font-bold text-yellow-400">
+                      {formatEther(totalUnclaimed)}
+                    </p>
+                    <p className="text-[10px] text-gray-300">Claimable ETH</p>
+                  </div>
+                  <div className="text-center">
+                    <CheckCircle2 className="w-4 h-4 text-gray-400 mx-auto mb-0.5" />
+                    <p className="text-lg font-bold text-gray-400">{claimedCount}</p>
+                    <p className="text-[10px] text-gray-300">Claimed</p>
+                  </div>
+                </div>
+
+                {unclaimedCount > 0 ? (
+                  <Button
+                    onClick={handleClaimAll}
+                    disabled={isPending || isConfirming || claimStatus === 'claiming'}
+                    className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 font-bold text-sm py-4"
+                  >
+                    {isPending || isConfirming || claimStatus === 'claiming' ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <Trophy className="w-4 h-4 mr-2" />
+                        Claim All - {formatEther(totalUnclaimed)} ETH
+                      </>
+                    )}
+                  </Button>
+                ) : (
+                  <div className="text-center py-2">
+                    <p className="text-gray-400 text-sm">✅ All rewards claimed!</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Period List */}
+          {loading || isLoadingPeriods ? (
+            <div className="text-center py-4">
+              <Loader2 className="w-6 h-6 text-purple-400 animate-spin mx-auto mb-1" />
+              <p className="text-purple-300 text-xs">Loading...</p>
+            </div>
+          ) : !userPeriods || userPeriods.length === 0 ? (
+            <Card className="border-gray-600/50 bg-gray-900/30">
+              <CardContent className="p-4 text-center">
+                <Trophy className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+                <p className="text-gray-400 text-sm">No participation history</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+              {periodPrizes.length === 0 ? (
+                <Card className="border-gray-600/50 bg-gray-900/30">
+                  <CardContent className="p-3 text-center">
+                    <p className="text-gray-400 text-xs">Loading...</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                periodPrizes.map((prize) => (
+                  <Card 
+                    key={prize.period}
+                    className={`border ${
+                      prize.claimed 
+                        ? 'border-gray-600/50 bg-gray-900/30' 
+                        : prize.prizeAmount > BigInt(0)
+                        ? 'border-green-500/50 bg-green-900/20'
+                        : 'border-gray-600/50 bg-gray-900/30'
+                    }`}
+                  >
+                    <CardContent className="p-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                              Period {prize.period}
+                            </Badge>
+                            {prize.claimed && (
+                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-green-700 text-green-100">
+                                ✅
+                              </Badge>
+                            )}
+                            {!prize.claimed && prize.prizeAmount > BigInt(0) && (
+                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-yellow-700 text-yellow-100">
+                                💰
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-2 gap-1.5 text-[10px]">
+                            <div>
+                              <span className="text-gray-500">Score:</span>
+                              <span className="text-gray-300 ml-1 font-bold">
+                                {Number(prize.score).toLocaleString()}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Prize:</span>
+                              <span className={`ml-1 font-bold ${
+                                prize.prizeAmount > BigInt(0) ? 'text-yellow-400' : 'text-gray-500'
+                              }`}>
+                                {prize.prizeAmount > BigInt(0) ? formatEther(prize.prizeAmount) : '0'} ETH
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* Deprecated Contracts Link */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full border-orange-600/50 text-orange-300 hover:bg-orange-900/30 text-xs"
+            onClick={() => setShowDeprecated(!showDeprecated)}
+          >
+            {showDeprecated ? '← Back to Current Contract' : '⚠️ View Deprecated Contract (PointBasedV4)'}
+          </Button>
+
+          {/* Deprecated Contract Section */}
+          {showDeprecated && (
+            <div className="pt-2 border-t border-orange-600/30">
+              <DeprecatedContractsClaimV20 onClose={() => setShowDeprecated(false)} />
+            </div>
+          )}
+
+          {/* Contract Info - Removed for cleaner UI */}
+        </div>
+      </DialogContent>
+
+      {/* Share Success Modal - after claim */}
+      <ShareSuccessModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        totalClaimed={claimedAmount}
+        periodsCount={claimedPeriodsCount}
+      />
+    </Dialog>
+  );
+}
