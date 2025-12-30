@@ -1,4 +1,3 @@
-// anjing
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useAccount } from 'wagmi';
 import { formatEther, parseEther, type Address } from 'viem';
 import { ETHER_TRIALS_V3_ABI, ETHER_TRIALS_V3_ADDRESS } from '@/lib/contracts/etherTrialsPointBasedV3ABI';
