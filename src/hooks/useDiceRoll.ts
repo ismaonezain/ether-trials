@@ -1,4 +1,3 @@
-// anjing
 'use client';
 
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
