@@ -1,4 +1,3 @@
-// anjing
 'use client';
 
 import { useFarcasterWallet } from './useFarcasterWallet';
