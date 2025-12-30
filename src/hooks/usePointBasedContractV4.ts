@@ -1,3 +1,4 @@
+// anjing
 'use client';
 
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useAccount } from 'wagmi';
