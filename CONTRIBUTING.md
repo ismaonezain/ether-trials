@@ -1,3 +1,4 @@
+hahaha
 # 🤝 Contributing to Ether Trials
 
 Thank you for your interest in contributing to Ether Trials! We welcome contributions from the community.
