@@ -1,3 +1,4 @@
+hahaha
 # 🎯 Batch Claim Feature - Implementation Guide
 
 ## Overview
