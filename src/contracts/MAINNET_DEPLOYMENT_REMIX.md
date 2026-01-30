@@ -1,3 +1,4 @@
+asgjll;
 # 🚀 MAINNET DEPLOYMENT GUIDE - Base Network via Remix
 
 ## ⚠️ CRITICAL - READ BEFORE DEPLOYING
