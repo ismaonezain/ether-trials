@@ -1,4 +1,5 @@
-'use client';
+kono
+  'use client';
 
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
