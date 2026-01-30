@@ -1,4 +1,5 @@
-'use client';
+kono
+  'use client';
 
 import { useAccount, useConnectors } from 'wagmi';
 
