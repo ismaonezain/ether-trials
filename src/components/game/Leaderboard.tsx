@@ -1,4 +1,5 @@
-'use client';
+kono
+  'use client';
 
 import { useState, useMemo, useEffect } from 'react';
 import type { Entry, FunEntry } from '@/hooks/useSupabase';
