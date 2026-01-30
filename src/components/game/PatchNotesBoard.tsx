@@ -1,4 +1,5 @@
-'use client';
+kon
+  'use client';
 
 import { useState } from 'react';
 import { X, ScrollText, ChevronDown, ChevronUp, TrendingUp, TrendingDown, Wrench, Sparkles } from 'lucide-react';
