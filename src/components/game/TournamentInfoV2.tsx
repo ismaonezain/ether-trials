@@ -1,4 +1,5 @@
-'use client';
+kono
+  'use client';
 
 import { usePointBasedContract } from '@/hooks/usePointBasedContract';
 import { useAccount } from 'wagmi';
