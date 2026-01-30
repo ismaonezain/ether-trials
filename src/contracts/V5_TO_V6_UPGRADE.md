@@ -1,3 +1,4 @@
+konto
 # Upgrade Guide: v5 → v6 (ETH to TRIA Auto-Swap)
 
 ## 🎯 Overview
