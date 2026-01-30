@@ -1,3 +1,4 @@
+kumo
 # 💰 TRIA Staking Deployment Guide
 
 ## 📋 Overview
