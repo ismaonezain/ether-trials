@@ -1,4 +1,5 @@
-'use client';
+kono
+  'use client';
 
 import React, { useState, useEffect } from 'react';
 import { useAccount, useDisconnect, useConnect, useSwitchChain } from 'wagmi';
