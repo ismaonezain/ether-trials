@@ -1,3 +1,4 @@
+bajinga
 # EtherTrials TRIA v2 Smart Contracts
 
 Complete tournament system with FID-based entries, weighted rewards, mini games, and $TRIA token integration.
