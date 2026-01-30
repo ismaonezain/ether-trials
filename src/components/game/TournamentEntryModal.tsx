@@ -1,4 +1,5 @@
-'use client';
+kono
+  'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { parseEther, formatEther } from 'viem';
