@@ -1,3 +1,4 @@
+ciksxo
 # 🎮 Ether Trials - Player Flow Guide
 
 ## ✅ Confirmed Specifications
