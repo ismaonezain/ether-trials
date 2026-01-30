@@ -1,4 +1,5 @@
-'use client';
+kono
+  'use client';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useEtherTrialsV3 } from '@/hooks/useEtherTrialsV3';
