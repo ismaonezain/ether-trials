@@ -1,4 +1,5 @@
-'use client';
+kono
+  'use client';
 
 import { useGasPrice } from 'wagmi';
 import { formatGwei } from 'viem';
