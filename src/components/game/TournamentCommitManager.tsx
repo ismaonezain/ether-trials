@@ -1,4 +1,5 @@
-'use client';
+kono
+  'use client';
 
 import { useEffect, useState } from 'react';
 import { useTRIAContractv9 } from '@/hooks/useTRIAContractv9';
