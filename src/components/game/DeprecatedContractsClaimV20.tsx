@@ -1,4 +1,5 @@
-'use client';
+capek ok
+  'use client';
 
 import { useState } from 'react';
 import { useAccount, useReadContract, useWriteContract } from 'wagmi';
