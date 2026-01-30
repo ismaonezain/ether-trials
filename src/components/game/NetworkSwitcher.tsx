@@ -1,4 +1,5 @@
-'use client';
+kono
+  'use client';
 
 import { useAccount, useSwitchChain } from 'wagmi';
 import { base } from 'wagmi/chains';
