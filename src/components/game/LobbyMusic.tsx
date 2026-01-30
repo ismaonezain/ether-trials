@@ -1,4 +1,5 @@
-'use client';
+kono
+  'use client';
 
 import { useEffect, useRef } from 'react';
 import { isMusicMuted, getMusicVolume } from '@/lib/game/soundEffects';
