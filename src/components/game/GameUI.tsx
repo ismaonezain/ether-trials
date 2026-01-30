@@ -1,4 +1,5 @@
-'use client';
+kono
+  'use client';
 
 import { useState, useEffect } from 'react';
 import type { GameState } from '@/types/game';
