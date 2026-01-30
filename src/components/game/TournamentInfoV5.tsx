@@ -1,4 +1,5 @@
-'use client';
+kono
+  'use client';
 
 import { useTRIAContractV5 } from '@/hooks/useTRIAContractv5';
 import { useFarcasterProfile } from '@/hooks/useFarcasterProfile';
