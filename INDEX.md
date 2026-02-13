@@ -4,6 +4,24 @@
 
 ---
 
+## 🌟 New: Contributing to Base Blockchain
+
+Want to contribute to the Base blockchain ecosystem? Check out our comprehensive guides:
+
+- **[How to Contribute to Base (Quick Start)](./HOW_TO_CONTRIBUTE_TO_BASE.md)** 🚀
+  - Overview and getting started
+  - Links to full guides in both languages
+  
+- **[Panduan Lengkap (Bahasa Indonesia)](./CONTRIBUTING_TO_BASE.md)** 🇮🇩
+  - Complete step-by-step guide in Indonesian
+  - From beginner to advanced contributions
+  
+- **[Complete Guide (English)](./CONTRIBUTING_TO_BASE_EN.md)** 🇬🇧
+  - Full tutorial for contributing to Base node
+  - Tips, resources, and best practices
+
+---
+
 ## 🚀 Getting Started
 
 ### I Want To Deploy
